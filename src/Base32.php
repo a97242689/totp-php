@@ -16,47 +16,52 @@ class Base32
      */
     public function _base32Decode($secret)
     {
-        if (empty($secret)) {
+        if ($secret === '') {
             return '';
         }
 
         $base32chars = $this->_getBase32LookupTable();
         $base32charsFlipped = array_flip($base32chars);
 
-        foreach (str_split($secret) as $char) {
-            if (!isset($base32charsFlipped[$char]) && $char !== '=') {
-                return false;
-            }
-        }
+        $paddingCharCount = strlen($secret) - strlen(rtrim($secret, '='));
+        $encodedLength = strlen($secret) - $paddingCharCount;
+        $paddingByRemainder = [
+            0 => 0,
+            2 => 6,
+            4 => 4,
+            5 => 3,
+            7 => 1,
+        ];
+        $remainder = $encodedLength % 8;
 
-        $paddingCharCount = substr_count($secret, $base32chars[32]);
-        $allowedValues = array(6, 4, 3, 1, 0);
-        if (!in_array($paddingCharCount, $allowedValues)) {
+        if (!isset($paddingByRemainder[$remainder])) {
             return false;
         }
-        for ($i = 0; $i < 4; ++$i) {
-            if (
-                $paddingCharCount == $allowedValues[$i] &&
-                substr($secret, - ($allowedValues[$i])) != str_repeat($base32chars[32], $allowedValues[$i])
-            ) {
-                return false;
-            }
+
+        if ($paddingCharCount > 0 && (
+            strlen($secret) % 8 !== 0 ||
+            $paddingCharCount !== $paddingByRemainder[$remainder]
+        )) {
+            return false;
         }
 
-        $secret = str_replace('=', '', $secret);
-        $secret = str_split($secret);
         $binaryString = '';
-        for ($i = 0; $i < count($secret); $i = $i + 8) {
-            $x = '';
-            if (!in_array($secret[$i], $base32chars)) {
+        $buffer = 0;
+        $bitsAvailable = 0;
+
+        for ($i = 0; $i < $encodedLength; ++$i) {
+            $char = $secret[$i];
+            if (!isset($base32charsFlipped[$char]) || $base32charsFlipped[$char] > 31) {
                 return false;
             }
-            for ($j = 0; $j < 8; ++$j) {
-                $x .= str_pad(base_convert(@$base32charsFlipped[@$secret[$i + $j]], 10, 2), 5, '0', STR_PAD_LEFT);
-            }
-            $eightBits = str_split($x, 8);
-            for ($z = 0; $z < count($eightBits); ++$z) {
-                $binaryString .= (($y = chr(base_convert($eightBits[$z], 2, 10))) || ord($y) == 48) ? $y : '';
+
+            $buffer = ($buffer << 5) | $base32charsFlipped[$char];
+            $bitsAvailable += 5;
+
+            if ($bitsAvailable >= 8) {
+                $bitsAvailable -= 8;
+                $binaryString .= chr(($buffer >> $bitsAvailable) & 0xFF);
+                $buffer &= (1 << $bitsAvailable) - 1;
             }
         }
 

@@ -56,10 +56,10 @@ class Totp
      */
     public function getQrCodePayload(string $secret, string $label, ?string $issuer = null): string
     {
-        $payload = 'otpauth://totp/' . $label . '?secret=' . $secret;
+        $payload = 'otpauth://totp/' . rawurlencode($label) . '?secret=' . rawurlencode($secret);
 
-        if ($issuer) {
-            $payload .= '&issuer=' . $issuer;
+        if ($issuer !== null && $issuer !== '') {
+            $payload .= '&issuer=' . rawurlencode($issuer);
         }
 
         return $payload;
@@ -75,10 +75,17 @@ class Totp
      */
     public function getCode(string $secret, ?int $timeSlice = null): string
     {
-        $timeSlice ??= floor(time() / 30);
+        $timeSlice ??= intdiv(time(), 30);
+        if ($timeSlice < 0) {
+            throw new \InvalidArgumentException('Time slice must not be negative');
+        }
 
         $secretKey = $this->base32->_base32Decode($secret);
-        $time = chr(0) . chr(0) . chr(0) . chr(0) . pack('N*', $timeSlice);
+        if ($secretKey === false || $secretKey === '') {
+            throw new \InvalidArgumentException('Invalid Base32 secret');
+        }
+
+        $time = pack('J', $timeSlice);
 
         $hm = hash_hmac('SHA1', $time, $secretKey, true);
         $offset = ord(substr($hm, -1)) & 0x0F;
@@ -106,7 +113,7 @@ class Totp
         }
 
         for ($i = -$discrepancy; $i <= $discrepancy; ++$i) {
-            $calculatedCode = $this->getCode($secret, floor(time() / 30) + $i);
+            $calculatedCode = $this->getCode($secret, intdiv(time(), 30) + $i);
             if ($this->timingSafeEquals($calculatedCode, $code)) {
                 return true;
             }

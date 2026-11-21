@@ -1,122 +1,84 @@
 # TOTP-PHP
 
-![PHP Version](https://img.shields.io/badge/php-%3E%3D8.2-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue) [![Packagist Downloads](https://img.shields.io/packagist/dm/kayon-ariel/totp-php.svg?label=Packagist%20downloads)](https://packagist.org/packages/kayon-ariel/totp-php)
+![PHP 版本](https://img.shields.io/badge/php-%3E%3D8.2-brightgreen) ![许可证](https://img.shields.io/badge/license-MIT-blue) [![Packagist 下载量](https://img.shields.io/packagist/dm/kayon-ariel/totp-php.svg?label=%E4%B8%8B%E8%BD%BD%E9%87%8F)](https://packagist.org/packages/kayon-ariel/totp-php)
 
-## Introduction
+TOTP-PHP 是一个用于生成和校验基于时间的一次性密码（TOTP）的 PHP 库，兼容 RFC 6238，可与 Google Authenticator 等 TOTP 应用配合使用。
 
-**TOTP-PHP** is a PHP library for generating Time-based One-Time Passwords (TOTP) for two-factor authentication. This library is easy to integrate into your existing PHP applications, allowing you to enhance your security measures effectively.
+## 功能
 
-**TOTP-PHP** is compatible with **Google Authenticator** and other TOTP applications, making it a great choice for implementing two-factor authentication in your projects.
+- 生成符合 RFC 6238 的六位 TOTP 验证码。
+- 生成随机 Base32 密钥。
+- 校验验证码，并允许配置时间窗口偏差。
+- 生成供验证器应用导入的 `otpauth://` URI。
 
-For a secure installation you have to make sure that used codes cannot be reused (replay-attack). You also need to limit the number of verifications, to fight against brute-force attacks. For example you could limit the amount of verifications to 10 tries within 10 minutes for one IP address (or IPv6 block). It depends on your environment.
+## 安装
 
-## Features
-
-- Generate TOTP codes compliant with RFC 6238.
-- Simple for use.
-- Built-in validation methods.
-- Secret key generation for TOTP.
-- Compatible with Google Authenticator and similar apps.
-- Generate QR code payloads for easy integration with TOTP applications.
-
-## Installation
-
-You can install the `totp-php` library via Composer. Run the following command in your terminal:
+通过 Composer 安装：
 
 ```bash
 composer require kayon-ariel/totp-php
 ```
 
-## Usage
+需要 PHP 8.2 或更高版本。
 
-Here is a simple example of how to use the library:
-
-### Generating a TOTP Code
+## 快速开始
 
 ```php
+<?php
+
 require 'vendor/autoload.php';
 
 use TotpPhp\Totp;
 
-// Create a new TOTP instance
-$ga = new Totp();
+$totp = new Totp();
+$secret = $totp->createSecret();
+$code = $totp->getCode($secret);
 
-// Generate a secret key
-$secret = $ga->createSecret();
-echo "Secret is: " . $secret . "\n\n";
+echo "密钥：{$secret}\n";
+echo "验证码：{$code}\n";
 
-// Generate a TOTP code based on the secret
-$oneCode = $ga->getCode($secret);
-echo "Checking Code '$oneCode' and Secret '$secret':\n";
-
-// Verify the TOTP code against the secret
-$checkResult = $ga->verifyCode($secret, $oneCode);
-
-if ($checkResult) {
-    echo 'OK';
+if ($totp->verifyCode($secret, $code)) {
+    echo '验证成功';
 } else {
-    echo 'FAILED';
+    echo '验证失败';
 }
 ```
 
-### Generating a Secret Key
+## 生成验证器 URI
 
-You can generate a random secret key using the `createSecret` method. This is useful for initializing a new user or session.
-
-```php
-$secret = $ga->createSecret();
-echo "Your secret key is: " . $secret;
-```
-
-### Generating a QR Code Payload
-
-To generate a QR code payload for a TOTP secret, use the `getQrCodePayload` function:
+将 URI 转换为二维码后，可供 TOTP 验证器应用扫描导入。此方法生成 URI，不负责绘制二维码图像。
 
 ```php
-$label = 'user@example.com'; // The user's email or username
-$issuer = 'MyApp'; // Optional issuer name
+<?php
 
-$qrcodePayload = $totp->getQrCodePayload($secret, $label, $issuer);
-echo "QR Code Payload: " . $qrcodePayload . "\n";
+require 'vendor/autoload.php';
+
+use TotpPhp\Totp;
+
+$totp = new Totp();
+$secret = $totp->createSecret();
+$payload = $totp->getQrCodePayload($secret, 'user@example.com', '我的应用');
+
+echo $payload;
 ```
 
-### Validating a TOTP Code
+标签、密钥和发行方会按 URI 规则进行百分号编码。
 
-You can validate a TOTP code using the `verifyCode` method:
+## API
 
-```php
-$userInputCode = '123456'; // Example user input
-$isValid = $ga->verifyCode($secret, $userInputCode);
+- `createSecret(int $secretLength = 16): string`：生成随机 Base32 密钥，长度须为 16 至 128 个字符；超出范围时抛出 `InvalidArgumentException`。
+- `getCode(string $secret, ?int $timeSlice = null): string`：生成六位验证码。省略 `$timeSlice` 时使用当前 30 秒时间步；密钥无效或为空时抛出 `InvalidArgumentException`。
+- `verifyCode(string $secret, string $code, int $discrepancy = 1): bool`：校验六位验证码。`$discrepancy` 表示允许的前后时间步数，默认允许当前时间步及其相邻时间步。
+- `getQrCodePayload(string $secret, string $label, ?string $issuer = null): string`：生成验证器 URI；发行方参数可省略。
 
-if ($isValid) {
-    echo "The TOTP code is valid!";
-} else {
-    echo "The TOTP code is invalid!";
-}
-```
+## 安全说明
 
-### Code Generation and Verification Logic
+请安全保存每位用户的密钥。生产环境还应限制验证码尝试次数，并记录已接受的时间步，避免验证码被重放。具体策略应结合应用的认证流程实现。
 
-The library uses the following methods:
+## 许可证
 
-- **`createSecret(int $secretLength = 16): string`**: Generates a new secret key with a specified length (minimum 16 characters).
-- **`getCode(string $secret, ?int $timeSlice = null): string`**: Calculates the TOTP code for a given secret key and time slice (defaults to the current time).
-- **`verifyCode(string $secret, string $code, int $discrepancy = 1): bool`**: Checks if the provided TOTP code matches the expected code for the secret, allowing for some time discrepancy.
+本库采用 MIT 许可证，详见 [LICENSE.md](LICENSE.md)。其中包含源自 `PHPGangsta/GoogleAuthenticator` 的代码，其原始 BSD 许可证及版权信息保留在许可证文件中。
 
-## License
+## 贡献与联系
 
-This library incorporates code from the original `PHPGangsta/GoogleAuthenticator` project:
-
-* Copyright (c) 2012-2016, [http://www.phpgangsta.de](http://www.phpgangsta.de)
-* Author: Michael Kliewe, [@PHPGangsta](http://twitter.com/PHPGangsta) and [contributors](https://github.com/PHPGangsta/GoogleAuthenticator/graphs/contributors)
-* Licensed under the BSD License.
-
-Current: Copyright (c) 2024 Kayon Ariel, provided under the MIT License.
-
-## Contributions
-
-Contributions are welcome! Feel free to submit issues, fork the repository, and submit pull requests.
-
-## Contact
-
-For any inquiries or feedback, you can reach out to me at [kayonariel@gmail.com].
+欢迎提交问题和改进建议。联系邮箱：[kayonariel@gmail.com](mailto:kayonariel@gmail.com)。

@@ -38,16 +38,29 @@ class TotpTest extends TestCase
 
     public function testGetQrCodePayload()
     {
-        $secret = $this->totp->createSecret();
+        $secret = 'ABC=';
         $label = 'user@example.com';
-        $issuer = 'MyApp';
+        $issuer = 'My App';
 
         $payload = $this->totp->getQrCodePayload($secret, $label, $issuer);
 
-        $this->assertStringStartsWith('otpauth://totp/', $payload);
-        $this->assertStringContainsString('totp/' . $label, $payload);
-        $this->assertStringContainsString('issuer=' . $issuer, $payload);
-        $this->assertStringContainsString('secret=' . $secret, $payload);
+        $this->assertSame(
+            'otpauth://totp/user%40example.com?secret=ABC%3D&issuer=My%20App',
+            $payload
+        );
+    }
+
+    public function testGetQrCodePayloadEncodesReservedCharacters()
+    {
+        $label = 'user+tag@example.com?admin=true#profile';
+        $issuer = 'My App & Co';
+
+        $payload = $this->totp->getQrCodePayload('ABC=', $label, $issuer);
+
+        $this->assertSame(
+            'otpauth://totp/' . rawurlencode($label) . '?secret=' . rawurlencode('ABC=') . '&issuer=' . rawurlencode($issuer),
+            $payload
+        );
     }
 
     public function testGetCode()
@@ -56,6 +69,41 @@ class TotpTest extends TestCase
         $code = $this->totp->getCode($secret);
         $this->assertIsString($code);
         $this->assertEquals(6, strlen($code));  // Code length should be 6
+    }
+
+    public function testGetCodeMatchesRfc6238Sha1Vector()
+    {
+        $secret = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+
+        $this->assertSame('287082', $this->totp->getCode($secret, 1));
+    }
+
+    public function testGetCodeRejectsInvalidBase32Secret()
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->totp->getCode('INVALID!');
+    }
+
+    public function testGetCodeRejectsEmptySecret()
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->totp->getCode('');
+    }
+
+    public function testGetCodeRejectsZeroSecret()
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->totp->getCode('0');
+    }
+
+    public function testGetCodeUsesFull64BitTimeSlice()
+    {
+        $secret = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+
+        $this->assertSame('999456', $this->totp->getCode($secret, 4294967296));
     }
 
     public function testVerifyCodeCorrect()

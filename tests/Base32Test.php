@@ -21,12 +21,38 @@ class Base32Test extends TestCase
         $this->assertEquals('Hello', $decoded);
     }
 
+    public function testBase32DecodeRfc4648Vectors()
+    {
+        $vectors = [
+            'MY======' => 'f',
+            'MZXQ====' => 'fo',
+            'MZXW6===' => 'foo',
+            'MZXW6YQ=' => 'foob',
+            'MZXW6YTB' => 'fooba',
+            'MZXW6YTBOI======' => 'foobar',
+        ];
+
+        foreach ($vectors as $encoded => $expected) {
+            $this->assertSame($expected, $this->base32->_base32Decode($encoded));
+        }
+    }
+
     public function testBase32DecodeInvalid()
     {
-        $invalidEncoded = 'INVALIDBAS2251STRING';
-        $decoded = $this->base32->_base32Decode($invalidEncoded);
+        $invalidValues = [
+            'INVALIDBAS2251STRING',
+            '0',
+            'M=ZXW6==',
+            'MZXW6====',
+            'A',
+        ];
 
-        $this->assertFalse($decoded, 'Base32 decoding of an invalid string should return false.');
+        foreach ($invalidValues as $invalidValue) {
+            $this->assertFalse(
+                $this->base32->_base32Decode($invalidValue),
+                'Base32 decoding of an invalid string should return false.'
+            );
+        }
     }
 
 
