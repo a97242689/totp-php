@@ -1,6 +1,6 @@
 # TOTP-PHP
 
-![PHP 版本](https://img.shields.io/badge/php-%3E%3D8.2-brightgreen) ![许可证](https://img.shields.io/badge/license-MIT-blue) [![Packagist 下载量](https://img.shields.io/packagist/dm/kayon-ariel/totp-php.svg?label=%E4%B8%8B%E8%BD%BD%E9%87%8F)](https://packagist.org/packages/kayon-ariel/totp-php)
+![PHP 版本](https://img.shields.io/badge/php-%3E%3D8.2-brightgreen) ![许可证](https://img.shields.io/badge/license-MIT-blue)
 
 TOTP-PHP 是一个用于生成和校验基于时间的一次性密码（TOTP）的 PHP 库，兼容 RFC 6238，可与 Google Authenticator 等 TOTP 应用配合使用。
 
@@ -13,11 +13,14 @@ TOTP-PHP 是一个用于生成和校验基于时间的一次性密码（TOTP）�
 
 ## 安装
 
-通过 Composer 安装：
+本仓库尚未发布到 Packagist，需要通过 VCS 仓库方式安装：
 
 ```bash
-composer require kayon-ariel/totp-php
+composer config repositories.totp-php vcs https://github.com/a97242689/totp-php.git
+composer require kayon-ariel/totp-php:dev-master
 ```
+
+包名沿用上游的 `kayon-ariel/totp-php`，上面的 VCS 配置会让 Composer 从本仓库解析该包。若之前已经安装过上游版本，可执行 `composer update kayon-ariel/totp-php` 更新到本仓库版本。
 
 需要 PHP 8.2 或更高版本。
 
